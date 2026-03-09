@@ -1,0 +1,21 @@
+DATA_ROOT = "/home/student6/GalLens_student6/Dataset_images"
+TRAIN_JSONL = "train.jsonl"
+VAL_JSONL = "val.jsonl"
+OUTPUT_DIR = "./checkpoints_qwen"
+MODEL_ID = "Qwen/Qwen2-VL-7B-Instruct"
+
+BATCH_SIZE = 4
+GRADIENT_ACCUMULATION = 8
+LEARNING_RATE = 2e-4
+NUM_EPOCHS = 1
+MAX_PIXELS = 896 * 28 * 28
+LORA_R = 64
+LORA_ALPHA = 128
+LORA_DROPOUT = 0.05
+
+SEED = 42
+EVAL_AT_STEP = 1500
+SAVE_STEPS = 400
+SAVE_TOTAL_LIMIT = 3
+LOGGING_STEPS = 2
+DATALOADER_NUM_WORKERS = 8
