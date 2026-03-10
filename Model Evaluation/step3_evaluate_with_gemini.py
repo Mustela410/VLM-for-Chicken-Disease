@@ -20,28 +20,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 BATCH_SIZE = 120
 MODEL_NAME = "gemini-2.5-flash"
 
-API_KEYS = ["AIzaSyA9i7QN9UbLn7Ta2x6N40RuKKXheEHvfOY", "AIzaSyDzhIbw3KHTqi1e7RhslmdUrVAC-zVotu0",
-    "AIzaSyBb4qL-CTCepyNO2gAMSJwwyMVG6NsctqQ", "AIzaSyDiNXGGdtMHh6rhsEhLHVY7MK22GlghevY",
-    "AIzaSyByrWg4KjXLneuTvgmiw9YAninEmXVAcOI", "AIzaSyDpQcQv6nV2KfDW6t3AUG6_fXhtlEExb5U",
-    "AIzaSyDnLTMgSDAuC_7SkeFFf2EZI8JDB8RU7_8", "AIzaSyDJ9t8ByUy7vxw0hc61t7Zw2-ihlzrF6O0",
-    "AIzaSyDSTywYVkSR7_UgSSP6p3pnDPQz9HQvds8", "AIzaSyDOybQqOwcGBX4zXAvlZ3muZEXutlYLp2E",
-    "AIzaSyD88bFYqsXrVhkm0bOAHF1x-jboJLLuLj4", "AIzaSyBJRMQCuvI0sdeHEJt8OlmbifDjcZ9wAA4",
-    "AIzaSyBL_Ou6iQe2RixBbMAaNBdEhMON4r1jLFE", "AIzaSyCFuBY_8HwhHgPpNHyNQHmCLrdw10g5-Ew", 
-    "AIzaSyDlVoHz9HC8q3mCMIgxMPENe0M0R6HxzYY", "AIzaSyCau-t_sfQ5I34CNNsfLy_eWIDkO1owU4w", 
-    "AIzaSyCKhcv8427ouDLraBecMvnN0qh5fMnFsV0", "AIzaSyACoe-WfJpKRUsBL3MZC_JcuDNV8Bk_mGY", 
-    "AIzaSyA4e3mlVn6TemSpnjPKdfFwOgdoMNt6QIA", "AIzaSyBLwcz1-Nuwtt6UImnNOAhjqsmrgyVVuqQ", 
-    "AIzaSyAQ7rT519HqkpIkJj6D46UhmX6vqslUWL0", "AIzaSyA1deRVMVgNX30EvkHn6dHnZ7xTF0EIYg4", 
-    "AIzaSyBpv_Ym87UuBAxPgqbeDACQFqgMVbEhhsQ", "AIzaSyBEPyOoXcXpu9wsriNgOpELxZ7mmxk56Xw", 
-    "AIzaSyDzzoEsaN8zkSvGBjeEh1LYGdSBwxT9RbM", "AIzaSyAI6j0V42eNzRryBANCKLaEmRaH1zx3Q3k", 
-    "AIzaSyA0cldIvx812JVzXx70XwZD0MDxujBP_4E", "AIzaSyC87mjRmJg1vGxxcbTJPeJSGiwIIIgBSwA", 
-    "AIzaSyAnTGVEe1MhPfK_ywQLySjRV5MOmDCRBAo", "AIzaSyC3a3k9Rsl3XafxSuOzd1uKvXjuw1RoAa8", 
-    "AIzaSyDFZwpZNtjSyjnBoJ0bpXU3MZYQcAcWtwA", "AIzaSyCFUm_tDeeYb_xRjumcKo0FbBZnZGEGhNw", 
-    "AIzaSyDep_NyXckJsqOMnuZbEEkos8CrS433cy4", "AIzaSyD19kWJ362Ut8Y3VU0LJaY5JDf1rHOefq8", 
-    "AIzaSyCM8wPB6kS7-lgS9Z3KDWbKBLP-JU6GlYQ", "AIzaSyCj4C7fnWL_cdPpO-_CXito935bPYdSRAs", 
-    "AIzaSyD3emSMPBsNhAcsC982htTaSONJJzFZ9XQ", "AIzaSyAZPx_J7VqzaqpnFeYUCfDo465zkHTleT0", 
-    "AIzaSyBImAla7RbnvIObxbcKDmNHxeigKvExuec", "AIzaSyDiXSbNjEMNvdHPH374qSaFQ87o0wSDWfE",
-    "AIzaSyDp_1eJrrKSbqqDHwGc2tO9FEcuc6HJwqo", "AIzaSyCSWuqhNcZ7mxGURC1bC2wwIXY2x2tsLW0",
-    "AIzaSyD516_SCYFBqg9uChesGyr1EYksS7YqAdo"]
+API_KEYS = []
 
 DISEASE_CLASSES = [
     "avian influenza (head)", "chronic respiratory(head)",
