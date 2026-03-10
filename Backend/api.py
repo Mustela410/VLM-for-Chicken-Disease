@@ -17,7 +17,7 @@ os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 BASE_DIR = "/storage/student6/GalLens_student6"
 CACHE_DIR_PATH = "/storage/student6/mustela_cache"
 MODEL_ID = "Qwen/Qwen2-VL-7B-Instruct"
-LORA_PATH = os.path.join(BASE_DIR, "final_lora_a100")
+LORA_PATH = "/storage/student6/final_lora_a100"
 
 app = Flask(__name__)
 CORS(app) 
@@ -27,7 +27,7 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 # import rag eingine
 try:
-    from rag_modules import rag_engine  
+    from rag_modules import rag_engine
     HAS_RAG = True
     logger.info("RAG Engine loaded successfully")
 except ImportError as e:
@@ -93,8 +93,20 @@ def generate_answer(image, question, model_type='finetuned', is_first_turn=False
         needs_rag = False
         if HAS_RAG and rag_engine and model_type == 'finetuned':
             # Ask base model if this question needs medical RAG
-            check_prompt = f"""Is this question about chicken disease diagnosis, treatment, symptoms, or prevention?
+            check_prompt = f"""Is this question asking about treatment, prevention, or disease definition?
+
 Question: "{prompt_text}"
+
+Answer "Yes" ONLY if the question asks about:
+- How to treat a disease
+- How to prevent a disease  
+- What is/Define a disease
+
+Answer "No" if the question asks about:
+- Identifying/diagnosing what disease this is
+- What body part is affected
+- Visual symptoms or evidence
+- Confirming if it's disease A, B, or C
 
 Answer only "Yes" or "No"."""
             
@@ -118,10 +130,10 @@ Answer only "Yes" or "No"."""
                 needs_rag = 'yes' in check_result
                 logger.info(f"{'RAG needed' if needs_rag else 'RAG not needed'} (base model said: {check_result})")
             except Exception as e:
-                logger.warning(f"RAG check failed, defaulting to True: {e}")
-                needs_rag = True
+                logger.warning(f"RAG check failed, defaulting to False: {e}")
+                needs_rag = False
 
-        # rag retrieval step
+        # rag retrieval 
         rag_context = ""
         rag_warning = ""
         rag_result = {'results': [], 'is_reliable': False}
@@ -146,14 +158,10 @@ Answer only "Yes" or "No"."""
                 rag_warning = f"\n\nLow confidence RAG: {rag_result['top_score']:.2f}"
                 logger.warning(f"Low confidence RAG: {rag_result['top_score']:.2f}")
             else:
-                # No results
                 logger.info("Empty RAG result (skipped or no matches).")
 
-        # --- PROMPT CONSTRUCTION ---
         final_prompt = prompt_text
         
-        # 1. Insert RAG Context with improved prompt wrapper
-        # Check if RAG was needed and executed
         if needs_rag and rag_result.get('results'):
             # RAG found results - check confidence
             if not rag_result.get('is_reliable', True):
@@ -162,7 +170,7 @@ Answer only "Yes" or "No"."""
 You are a veterinary AI assistant. You searched for medical information but the confidence score was too low to provide accurate guidance.
 
 You MUST respond EXACTLY:
-"I apologize, but I cannot find accurate medical documentation for this specific issue in my knowledge base. Please consult a veterinarian for proper guidance."
+I apologize, but I cannot find accurate medical documentation for this specific issue in my knowledge base. Please consult a veterinarian for proper guidance.
 
 Do NOT make up any information.
 """
@@ -193,7 +201,7 @@ Answer:
             else:
                 logger.info("RAG not needed - using original prompt")
 
-        # 2. First Turn Logic - Ask for image description
+        # 2. First Turn- Ask for image description
         if is_first_turn:
             if needs_rag and rag_result.get('results') and not rag_result.get('is_reliable', True):
                 # Low confidence medical query on first turn - keep apology prompt as is
@@ -240,7 +248,7 @@ Answer:
         logger.error(f"Inference Error: {e}")
         return None, str(e)
 
-# --- ROUTES ---
+# ROUTES
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -258,7 +266,7 @@ def analyze():
         question = data.get('question', '')
         model_type = data.get('model_type', 'finetuned')
         is_first_turn = data.get('is_first_turn', False)
-        # optimization 4: get disease context from request
+        # get disease context from request
         disease_context = data.get('disease_context', None)
 
         try:
@@ -286,14 +294,14 @@ def extract_disease():
         if not response_text:
             return jsonify({'success': False, 'error': 'No response text provided'}), 400
         
-        # disease list
+        
         known_diseases = [
-            "Bumblefoot", "Fowlpox", "CRD", "Chronic Respiratory Disease",
-            "Scalyleg", "Coccidiosis", "Marek's Disease", "Newcastle Disease",
-            "Infectious Bronchitis", "Avian Influenza","Infectious Laryngotracheitis"
+            "Bumblefoot", "Fowlpox", "Chronic Respiratory Disease",
+            "Scalyleg", "Coccidiosis", "Newcastle Disease", "Avian Influenza","Salmonella", 
+            "Healthy"
         ]
         
-        # Use base Qwen model (without LoRA) for text understanding
+        # Use base model
         extraction_prompt = f"""Given this veterinary diagnosis response, identify the EXACT disease name mentioned.
 
 Response text:
@@ -315,7 +323,7 @@ Format: Just the disease name, nothing else."""
         inputs = processor(text=[text_prompt], padding=True, return_tensors="pt").to(DEVICE)
 
         with torch.no_grad():
-            # Use base model WITHOUT LoRA for pure text understanding
+            # Use base model
             with model.disable_adapter():
                 output_ids = model.generate(
                     **inputs, 
