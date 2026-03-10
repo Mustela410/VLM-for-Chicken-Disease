@@ -1,0 +1,9 @@
+{
+    "Model": "base_model",
+    "BioBERT Sim": 0.8926,
+    "G-Eval Accuracy": 4.11,
+    "G-Eval Relevance": 4.89,
+    "G-Eval Fluency": 7.23,
+    "Diagnostic Accuracy": 0.1732,
+    "F1-Score": 0.261
+}

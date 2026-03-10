@@ -1,0 +1,258 @@
+import json
+import os
+import torch
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import google.generativeai as genai
+import time
+import re
+from tqdm import tqdm
+from transformers import AutoTokenizer, AutoModel
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+
+BASE_DIR = "/storage/student6/GalLens_student6"
+INPUT_DIR = os.path.join(BASE_DIR, "Model_eval/model_answers")
+OUTPUT_DIR = os.path.join(BASE_DIR, "Model_eval/results")
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+BATCH_SIZE = 120
+MODEL_NAME = "gemini-2.5-flash"
+
+API_KEYS = ["AIzaSyA9i7QN9UbLn7Ta2x6N40RuKKXheEHvfOY", "AIzaSyDzhIbw3KHTqi1e7RhslmdUrVAC-zVotu0",
+    "AIzaSyBb4qL-CTCepyNO2gAMSJwwyMVG6NsctqQ", "AIzaSyDiNXGGdtMHh6rhsEhLHVY7MK22GlghevY",
+    "AIzaSyByrWg4KjXLneuTvgmiw9YAninEmXVAcOI", "AIzaSyDpQcQv6nV2KfDW6t3AUG6_fXhtlEExb5U",
+    "AIzaSyDnLTMgSDAuC_7SkeFFf2EZI8JDB8RU7_8", "AIzaSyDJ9t8ByUy7vxw0hc61t7Zw2-ihlzrF6O0",
+    "AIzaSyDSTywYVkSR7_UgSSP6p3pnDPQz9HQvds8", "AIzaSyDOybQqOwcGBX4zXAvlZ3muZEXutlYLp2E",
+    "AIzaSyD88bFYqsXrVhkm0bOAHF1x-jboJLLuLj4", "AIzaSyBJRMQCuvI0sdeHEJt8OlmbifDjcZ9wAA4",
+    "AIzaSyBL_Ou6iQe2RixBbMAaNBdEhMON4r1jLFE", "AIzaSyCFuBY_8HwhHgPpNHyNQHmCLrdw10g5-Ew", 
+    "AIzaSyDlVoHz9HC8q3mCMIgxMPENe0M0R6HxzYY", "AIzaSyCau-t_sfQ5I34CNNsfLy_eWIDkO1owU4w", 
+    "AIzaSyCKhcv8427ouDLraBecMvnN0qh5fMnFsV0", "AIzaSyACoe-WfJpKRUsBL3MZC_JcuDNV8Bk_mGY", 
+    "AIzaSyA4e3mlVn6TemSpnjPKdfFwOgdoMNt6QIA", "AIzaSyBLwcz1-Nuwtt6UImnNOAhjqsmrgyVVuqQ", 
+    "AIzaSyAQ7rT519HqkpIkJj6D46UhmX6vqslUWL0", "AIzaSyA1deRVMVgNX30EvkHn6dHnZ7xTF0EIYg4", 
+    "AIzaSyBpv_Ym87UuBAxPgqbeDACQFqgMVbEhhsQ", "AIzaSyBEPyOoXcXpu9wsriNgOpELxZ7mmxk56Xw", 
+    "AIzaSyDzzoEsaN8zkSvGBjeEh1LYGdSBwxT9RbM", "AIzaSyAI6j0V42eNzRryBANCKLaEmRaH1zx3Q3k", 
+    "AIzaSyA0cldIvx812JVzXx70XwZD0MDxujBP_4E", "AIzaSyC87mjRmJg1vGxxcbTJPeJSGiwIIIgBSwA", 
+    "AIzaSyAnTGVEe1MhPfK_ywQLySjRV5MOmDCRBAo", "AIzaSyC3a3k9Rsl3XafxSuOzd1uKvXjuw1RoAa8", 
+    "AIzaSyDFZwpZNtjSyjnBoJ0bpXU3MZYQcAcWtwA", "AIzaSyCFUm_tDeeYb_xRjumcKo0FbBZnZGEGhNw", 
+    "AIzaSyDep_NyXckJsqOMnuZbEEkos8CrS433cy4", "AIzaSyD19kWJ362Ut8Y3VU0LJaY5JDf1rHOefq8", 
+    "AIzaSyCM8wPB6kS7-lgS9Z3KDWbKBLP-JU6GlYQ", "AIzaSyCj4C7fnWL_cdPpO-_CXito935bPYdSRAs", 
+    "AIzaSyD3emSMPBsNhAcsC982htTaSONJJzFZ9XQ", "AIzaSyAZPx_J7VqzaqpnFeYUCfDo465zkHTleT0", 
+    "AIzaSyBImAla7RbnvIObxbcKDmNHxeigKvExuec", "AIzaSyDiXSbNjEMNvdHPH374qSaFQ87o0wSDWfE",
+    "AIzaSyDp_1eJrrKSbqqDHwGc2tO9FEcuc6HJwqo", "AIzaSyCSWuqhNcZ7mxGURC1bC2wwIXY2x2tsLW0",
+    "AIzaSyD516_SCYFBqg9uChesGyr1EYksS7YqAdo"]
+
+DISEASE_CLASSES = [
+    "avian influenza (head)", "chronic respiratory(head)",
+    "healthy (feces)", "salmonella(feces)",
+    "bumble foot", "healthy foot", "foot scaly leg mite", "foot spur",
+    "fowlpox (head)", "healthy head",
+    "new castle (feces)", "new castle disease(head)",
+    "other"
+]
+
+BIOBERT_MODEL = "dmis-lab/biobert-v1.1"
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
+class APIKeyManager:
+    def __init__(self, keys):
+        self.keys = keys
+        self.current_idx = 0
+    
+    def get_next_key(self):
+        key = self.keys[self.current_idx]
+        self.current_idx = (self.current_idx + 1) % len(self.keys)
+        return key
+
+key_manager = APIKeyManager(API_KEYS)
+
+def load_biobert():
+    tok = AutoTokenizer.from_pretrained(BIOBERT_MODEL)
+    mod = AutoModel.from_pretrained(BIOBERT_MODEL).to(DEVICE)
+    return tok, mod
+
+def get_bio_embedding(text, tok, mod):
+    inputs = tok(text, return_tensors="pt", padding=True, truncation=True, max_length=512).to(DEVICE)
+    with torch.no_grad(): 
+        out = mod(**inputs)
+    return out.last_hidden_state.mean(dim=1)
+
+def calc_text_metrics(data, bio_tok, bio_mod):
+    for item in tqdm(data, desc="Calculating BioBERT metrics"):
+        emb1 = get_bio_embedding(item['model_answer'], bio_tok, bio_mod)
+        emb2 = get_bio_embedding(item['ground_truth'], bio_tok, bio_mod)
+        item['biobert_sim'] = torch.nn.functional.cosine_similarity(emb1, emb2).item()
+    return data
+
+def evaluate_batch(batch_items, retries=5):
+    batch_input = []
+    for idx, item in enumerate(batch_items):
+        batch_input.append({
+            "id": idx,
+            "model_answer": item['model_answer']
+        })
+    
+    prompt = f"""You are an expert veterinary evaluator. Your task is to evaluate AI model answers about chicken diseases.
+
+INPUT: {json.dumps(batch_input, ensure_ascii=False)}
+
+VALID CLASSES: {json.dumps(DISEASE_CLASSES)}
+
+TASKS - RATE INDEPENDENTLY:
+
+1. **Accuracy (1-10)**: How correct is the diagnosis/information?
+   - 9-10: Correct specific disease diagnosis with accurate details
+   - 7-8: Correct general direction but minor errors
+   - 4-6: Partially correct or vague diagnosis
+   - 1-3: Wrong diagnosis or misleading information
+   - Rate based on medical correctness only
+
+2. **Relevance (1-10)**: Does the answer address the question asked?
+   - 9-10: Directly answers the question with appropriate details
+   - 7-8: Mostly relevant with some tangential info
+   - 4-6: Partially relevant
+   - 1-3: Off-topic or doesn't address the question
+   - Rate independently of correctness
+
+3. **Fluency (1-10)**: How well-written is the text?
+   - 9-10: Excellent grammar, clear, coherent, professional
+   - 7-8: Good writing with minor issues
+   - 4-6: Understandable but awkward phrasing
+   - 1-3: Poor grammar, hard to understand
+   - Rate ONLY writing quality, NOT medical correctness
+
+4. **Extract pred_label**: Identify the disease mentioned in model_answer
+   - Use ONLY the model_answer text (no external info)
+   - Map symptoms to diseases using these guidelines:
+     * "White scales on legs" -> "foot scaly leg mite"
+     * "Green watery diarrhea" -> "new castle (feces)"
+     * "Swollen footpad with black scab" -> "bumble foot"
+     * "Facial swelling, eye discharge" -> "chronic respiratory(head)"
+     * "Purple/blue comb" -> "avian influenza (head)"
+     * "Yellow watery feces" -> "salmonella(feces)"
+     * "Bony growth/spur" -> "foot spur"
+     * "Wart-like lesions on comb" -> "fowlpox (head)"
+     * "Twisted neck, paralysis" -> "new castle disease(head)"
+     * "No abnormal signs" with head context -> "healthy head"
+     * "No abnormal signs" with foot context -> "healthy foot"
+     * "Normal feces" -> "healthy (feces)"
+   - If no clear diagnosis or vague answer -> "other"
+
+OUTPUT JSON:
+[
+    {{"id": 0, "accuracy": 8, "relevance": 9, "fluency": 10, "pred_label": "class_name"}},
+    ...
+]
+"""
+    
+    for i in range(retries):
+        try:
+            current_key = key_manager.get_next_key()
+            genai.configure(api_key=current_key)
+            model = genai.GenerativeModel(MODEL_NAME, generation_config={"temperature": 0.0, "response_mime_type": "application/json"})
+            
+            response = model.generate_content(prompt)
+            json_str = re.search(r'\[.*\]', response.text, re.DOTALL).group(0)
+            results = json.loads(json_str)
+            
+            if len(results) == len(batch_items):
+                return results
+        except Exception as e:
+            time.sleep(3)
+    
+    return [{"id": i, "accuracy": 0, "relevance": 0, "fluency": 0, "pred_label": "other"} for i in range(len(batch_items))]
+
+def run_evaluation(data, checkpoint_file):
+    chunks = [data[i:i + BATCH_SIZE] for i in range(0, len(data), BATCH_SIZE)]
+    processed_data = []
+    
+    start_idx = 0
+    if os.path.exists(checkpoint_file):
+        with open(checkpoint_file, 'r') as f:
+            processed_data = json.load(f)
+        start_idx = len(processed_data)
+        print(f"Resuming evaluation: {start_idx} samples already processed")
+    
+    for chunk_idx, chunk in enumerate(tqdm(chunks, desc="Evaluating with Gemini")):
+        if chunk_idx * BATCH_SIZE < start_idx:
+            continue
+        
+        results = evaluate_batch(chunk)
+        res_map = {r.get('id'): r for r in results}
+        
+        for idx, item in enumerate(chunk):
+            res = res_map.get(idx, {})
+            item.update(res)
+            
+            if item.get('pred_label') not in DISEASE_CLASSES:
+                item['pred_label'] = "other"
+            
+            processed_data.append(item)
+        
+        if (chunk_idx + 1) % 3 == 0:
+            with open(checkpoint_file, 'w') as f:
+                json.dump(processed_data, f)
+        
+        time.sleep(2)
+    
+    return processed_data
+
+def process_file(filename, bio_tok, bio_mod):
+    filepath = os.path.join(INPUT_DIR, filename)
+    model_name = filename.replace(".jsonl", "")
+    checkpoint_file = os.path.join(OUTPUT_DIR, f"checkpoint_{model_name}.json")
+    
+    with open(filepath, 'r') as f:
+        data = [json.loads(line) for line in f if line.strip()]
+    
+    data = calc_text_metrics(data, bio_tok, bio_mod)
+    data = run_evaluation(data, checkpoint_file)
+    
+    if os.path.exists(checkpoint_file):
+        os.remove(checkpoint_file)
+    
+    df = pd.DataFrame(data)
+    df.to_csv(os.path.join(OUTPUT_DIR, f"detailed_{model_name}.csv"), index=False)
+    
+    acc = accuracy_score(df['gt_label'], df['pred_label'])
+    f1 = f1_score(df['gt_label'], df['pred_label'], average='weighted', zero_division=0)
+    
+    report = {
+        "Model": model_name,
+        "BioBERT Sim": round(df['biobert_sim'].mean(), 4),
+        "G-Eval Accuracy": round(df['accuracy'].mean(), 2),
+        "G-Eval Relevance": round(df['relevance'].mean(), 2),
+        "G-Eval Fluency": round(df['fluency'].mean(), 2),
+        "Diagnostic Accuracy": round(acc, 4),
+        "F1-Score": round(f1, 4)
+    }
+    
+    cm = confusion_matrix(df['gt_label'], df['pred_label'], labels=DISEASE_CLASSES)
+    plt.figure(figsize=(14, 12))
+    sns.heatmap(cm, annot=True, fmt='d', xticklabels=DISEASE_CLASSES, yticklabels=DISEASE_CLASSES, cmap='Blues')
+    plt.title(f"Confusion Matrix - {model_name}\nAcc: {acc:.2%} | F1: {f1:.3f}")
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    plt.savefig(os.path.join(OUTPUT_DIR, f"cm_{model_name}.png"))
+    plt.close()
+    
+    return report
+
+def main():
+    bio_tok, bio_mod = load_biobert()
+    all_reports = []
+    
+    files = [f for f in os.listdir(INPUT_DIR) if f.endswith(".jsonl")]
+    for f in files:
+        rep = process_file(f, bio_tok, bio_mod)
+        all_reports.append(rep)
+        with open(os.path.join(OUTPUT_DIR, f"report_{rep['Model']}.json"), 'w') as f_out:
+            json.dump(rep, f_out, indent=4)
+    
+    final_df = pd.DataFrame(all_reports).set_index("Model")
+    final_df.to_csv(os.path.join(OUTPUT_DIR, "FINAL_COMPARISON.csv"))
+    print(final_df)
+
+if __name__ == "__main__":
+    main()
